@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d8a72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Walk Mate">
+    <title>Walk Mate</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">&#20170;&#26085;&#12398;&#12454;&#12457;&#12540;&#12461;&#12531;&#12464;</p>
+          <h1>Walk Mate</h1>
+        </div>
+        <button class="icon-button" id="installButton" type="button" aria-label="&#12507;&#12540;&#12512;&#30011;&#38754;&#12408;&#36861;&#21152;">
+          <span aria-hidden="true">+</span>
+        </button>
+      </header>
+
+      <section class="hero">
+        <div class="ring" aria-label="&#20170;&#26085;&#12398;&#30446;&#27161;&#36948;&#25104;&#29575;">
+          <svg viewBox="0 0 160 160" role="img">
+            <circle class="ring-track" cx="80" cy="80" r="68"></circle>
+            <circle class="ring-progress" id="goalRing" cx="80" cy="80" r="68"></circle>
+          </svg>
+          <div class="ring-copy">
+            <strong id="distanceValue">0.00</strong>
+            <span>km</span>
+          </div>
+        </div>
+        <div class="hero-copy">
+          <p id="statusText">&#28310;&#20633;&#12391;&#12365;&#12414;&#12375;&#12383;</p>
+          <strong id="timerValue">00:00:00</strong>
+          <span id="goalText">&#30446;&#27161; 3.0 km</span>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="&#12454;&#12457;&#12540;&#12461;&#12531;&#12464;&#12398;&#35352;&#37682;">
+        <article>
+          <span>&#12506;&#12540;&#12473;</span>
+          <strong id="paceValue">--'--"</strong>
+          <small>/ km</small>
+        </article>
+        <article>
+          <span>&#27497;&#25968;&#30446;&#23433;</span>
+          <strong id="stepsValue">0</strong>
+          <small>&#27497;</small>
+        </article>
+        <article>
+          <span>&#28040;&#36027;&#30446;&#23433;</span>
+          <strong id="calorieValue">0</strong>
+          <small>kcal</small>
+        </article>
+        <article>
+          <span>&#20307;&#37325;</span>
+          <strong id="weightValue">--</strong>
+          <small>kg</small>
+        </article>
+        <article>
+          <span>GPS</span>
+          <strong id="gpsValue">OFF</strong>
+          <small id="accuracyValue">--</small>
+        </article>
+      </section>
+
+      <section class="controls" aria-label="&#25805;&#20316;">
+        <button class="primary" id="startButton" type="button">&#38283;&#22987;</button>
+        <button id="pauseButton" type="button" disabled>&#19968;&#26178;&#20572;&#27490;</button>
+        <button id="finishButton" type="button" disabled>&#32066;&#20102;</button>
+      </section>
+
+      <section class="manual-panel">
+        <label for="manualDistance">&#36317;&#38626;&#12434;&#25163;&#20837;&#21147;</label>
+        <div class="input-row">
+          <input id="manualDistance" type="number" min="0" step="0.1" inputmode="decimal" placeholder="&#20363;: 2.4">
+          <button id="addManualButton" type="button">&#36861;&#21152;</button>
+        </div>
+      </section>
+
+      <section class="weight-panel">
+        <div class="section-title">
+          <h2>&#20170;&#26085;&#12398;&#20307;&#37325;</h2>
+          <span id="weightDateLabel"></span>
+        </div>
+        <div class="input-row">
+          <input id="weightInput" type="number" min="20" max="250" step="0.1" inputmode="decimal" placeholder="&#20363;: 62.5">
+          <span>kg</span>
+          <button id="saveWeightButton" type="button">&#20445;&#23384;</button>
+        </div>
+        <ol class="compact-list" id="weightHistoryList" aria-live="polite"></ol>
+      </section>
+
+      <section class="settings">
+        <label for="goalInput">1&#26085;&#12398;&#30446;&#27161;&#36317;&#38626;</label>
+        <div class="input-row">
+          <input id="goalInput" type="number" min="0.5" step="0.5" inputmode="decimal">
+          <span>km</span>
+        </div>
+      </section>
+
+      <section class="share-panel">
+        <div class="section-title">
+          <h2>&#12504;&#12523;&#12473;&#12465;&#12450;&#29992;&#12487;&#12540;&#12479;</h2>
+          <button id="shareDataButton" type="button">&#20849;&#26377;</button>
+        </div>
+        <p>PWA&#12363;&#12425;&#12504;&#12523;&#12473;&#12465;&#12450;&#12408;&#30452;&#25509;&#21516;&#26399;&#12391;&#12365;&#12394;&#12356;&#12383;&#12417;&#12289;CSV&#12391;&#20849;&#26377;&#12375;&#12414;&#12377;&#12290;</p>
+      </section>
+
+      <section class="history">
+        <div class="section-title">
+          <h2>&#23653;&#27508;</h2>
+          <button id="clearHistoryButton" type="button">&#12463;&#12522;&#12450;</button>
+        </div>
+        <ol id="historyList" aria-live="polite"></ol>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
