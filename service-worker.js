@@ -1,4 +1,4 @@
-const cacheName = "walk-mate-v3";
+const cacheName = "walk-mate-v4";
 const assets = [
   "./",
   "./index.html",

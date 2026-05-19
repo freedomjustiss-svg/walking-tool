@@ -3,6 +3,11 @@ const ringLength = 427;
 const strideMeters = 0.72;
 const kcalPerKgKm = 0.75;
 const fallbackWeightKg = 60;
+const maxUsableAccuracyMeters = 65;
+const preferredAccuracyMeters = 35;
+const maxWalkingSpeedMetersPerSecond = 4.5;
+const maxSegmentMeters = 120;
+const minSampleIntervalMs = 1200;
 
 const text = {
   recording: "\u8a18\u9332\u4e2d",
@@ -14,6 +19,8 @@ const text = {
   gpsCheck: "\u78ba\u8a8d",
   gpsPermission: "\u8a31\u53ef\u5f85\u3061",
   gpsNeeded: "GPS\u8a31\u53ef\u304c\u5fc5\u8981\u3067\u3059",
+  gpsGood: "\u826f\u597d",
+  gpsWeak: "\u5f31\u3044",
   distanceAdded: "\u8ddd\u96e2\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f",
   checkWeight: "\u4f53\u91cd\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044",
   weightSaved: "\u4f53\u91cd\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f",
@@ -96,8 +103,12 @@ function createSession() {
     startedAt: 0,
     pausedAt: 0,
     pausedMs: 0,
+    movingMs: 0,
     distanceKm: 0,
+    manualDistanceKm: 0,
     lastPoint: null,
+    track: [],
+    rejectedSamples: 0,
   };
 }
 
@@ -151,9 +162,11 @@ function finishWalk() {
     date: new Date().toISOString(),
     distanceKm: session.distanceKm,
     elapsedMs,
+    movingMs: session.movingMs,
     steps: Math.round((session.distanceKm * 1000) / strideMeters),
-    calories: Math.round(session.distanceKm * weightKg * kcalPerKgKm),
+    calories: calculateCalories(session.distanceKm, session.movingMs || elapsedMs, weightKg),
     weightKg,
+    route: session.track.slice(-300),
   };
 
   if (record.distanceKm > 0 || record.elapsedMs > 5000) {
@@ -207,20 +220,96 @@ function stopGps() {
 }
 
 function updatePosition(position) {
-  const { latitude, longitude, accuracy } = position.coords;
-  const point = { latitude, longitude };
-  elements.gps.textContent = "ON";
-  elements.accuracy.textContent = `${Math.round(accuracy)}m`;
+  if (!session.active || session.paused) return;
 
-  if (session.lastPoint && accuracy < 80 && !session.paused) {
-    const meters = distanceBetween(session.lastPoint, point);
-    if (meters > 2 && meters < 120) {
-      session.distanceKm += meters / 1000;
-    }
+  const point = createGpsPoint(position);
+  elements.accuracy.textContent = `${Math.round(point.accuracy)}m`;
+
+  if (point.accuracy > maxUsableAccuracyMeters) {
+    session.rejectedSamples += 1;
+    elements.gps.textContent = text.gpsWeak;
+    return;
   }
 
-  session.lastPoint = point;
+  elements.gps.textContent = point.accuracy <= preferredAccuracyMeters ? text.gpsGood : "ON";
+
+  if (!session.lastPoint) {
+    acceptGpsPoint(point, 0, 0);
+    render();
+    return;
+  }
+
+  const deltaMs = point.time - session.lastPoint.time;
+  if (deltaMs < minSampleIntervalMs) {
+    replaceAnchorIfBetter(point);
+    return;
+  }
+
+  const meters = distanceBetween(session.lastPoint, point);
+  const seconds = deltaMs / 1000;
+  const speed = meters / seconds;
+  const reportedSpeed = Number.isFinite(point.speed) ? point.speed : speed;
+  const noiseFloor = getNoiseFloorMeters(session.lastPoint, point);
+
+  if (meters < noiseFloor) {
+    replaceAnchorIfBetter(point);
+    render();
+    return;
+  }
+
+  if (meters > maxSegmentMeters || speed > maxWalkingSpeedMetersPerSecond || reportedSpeed > maxWalkingSpeedMetersPerSecond) {
+    session.rejectedSamples += 1;
+    if (point.accuracy < session.lastPoint.accuracy) {
+      session.lastPoint = point;
+    }
+    render();
+    return;
+  }
+
+  acceptGpsPoint(point, meters, deltaMs);
   render();
+}
+
+function createGpsPoint(position) {
+  const { latitude, longitude, accuracy, speed } = position.coords;
+  return {
+    latitude,
+    longitude,
+    accuracy: Number.isFinite(accuracy) ? accuracy : 999,
+    speed: Number.isFinite(speed) ? speed : null,
+    time: position.timestamp || Date.now(),
+  };
+}
+
+function acceptGpsPoint(point, meters, deltaMs) {
+  session.distanceKm += meters / 1000;
+  session.movingMs += deltaMs;
+  session.lastPoint = point;
+  session.track.push({
+    lat: roundCoordinate(point.latitude),
+    lon: roundCoordinate(point.longitude),
+    t: point.time,
+    a: Math.round(point.accuracy),
+    d: Math.round(session.distanceKm * 1000),
+  });
+  if (session.track.length > 600) {
+    session.track = session.track.slice(-600);
+  }
+}
+
+function replaceAnchorIfBetter(point) {
+  if (!session.lastPoint || point.accuracy + 5 < session.lastPoint.accuracy) {
+    session.lastPoint = point;
+  }
+}
+
+function getNoiseFloorMeters(a, b) {
+  const accuracyNoise = (a.accuracy + b.accuracy) * 0.12;
+  return Math.max(4, Math.min(14, accuracyNoise));
+}
+
+function roundCoordinate(value) {
+  return Math.round(value * 1000000) / 1000000;
 }
 
 function distanceBetween(a, b) {
@@ -253,6 +342,7 @@ function addManualDistance() {
   }
 
   session.distanceKm += value;
+  session.manualDistanceKm += value;
   elements.manualDistance.value = "";
   elements.status.textContent = text.distanceAdded;
   render();
@@ -352,9 +442,9 @@ function buildHealthCsv() {
       item.date,
       item.distanceKm.toFixed(3),
       "km",
-      Math.round(item.elapsedMs / 1000),
+      Math.round((item.movingMs || item.elapsedMs) / 1000),
       item.steps || Math.round((item.distanceKm * 1000) / strideMeters),
-      item.calories || Math.round(item.distanceKm * getLatestWeightKg() * kcalPerKgKm),
+      item.calories || calculateCalories(item.distanceKm, item.movingMs || item.elapsedMs, getLatestWeightKg()),
     ]);
   }
 
@@ -379,7 +469,7 @@ function render() {
   const paceMinutes = distanceKm > 0 ? elapsedMinutes / distanceKm : 0;
   const steps = Math.round((distanceKm * 1000) / strideMeters);
   const weightKg = getLatestWeightKg();
-  const calories = Math.round(distanceKm * weightKg * kcalPerKgKm);
+  const calories = calculateCalories(distanceKm, session.movingMs || elapsedMs, weightKg);
   const progress = Math.min(1, distanceKm / state.goalKm);
 
   elements.distance.textContent = distanceKm.toFixed(2);
@@ -408,7 +498,7 @@ function renderHistory() {
     const weightText = record.weightKg ? `${record.weightKg.toFixed(1)} kg` : text.noWeight;
     const paceText =
       record.distanceKm && record.elapsedMs > 1000
-        ? `${formatPace(record.elapsedMs / 60000 / record.distanceKm)} / km`
+        ? `${formatPace((record.movingMs || record.elapsedMs) / 60000 / record.distanceKm)} / km`
         : "--";
     item.innerHTML = `
       <strong>${record.distanceKm.toFixed(2)} km</strong>
@@ -452,6 +542,27 @@ function getTodayWeight() {
 
 function getLatestWeightKg() {
   return getLatestWeight()?.weightKg || fallbackWeightKg;
+}
+
+function calculateCalories(distanceKm, elapsedMs, weightKg) {
+  if (!distanceKm || distanceKm <= 0) return 0;
+
+  const minutes = elapsedMs / 60000;
+  if (!Number.isFinite(minutes) || minutes < 1) {
+    return Math.round(distanceKm * weightKg * kcalPerKgKm);
+  }
+
+  const hours = minutes / 60;
+  const speedKmh = distanceKm / hours;
+  const met = getWalkingMet(speedKmh);
+  return Math.round((met * 3.5 * weightKg * minutes) / 200);
+}
+
+function getWalkingMet(speedKmh) {
+  if (speedKmh < 3.2) return 2.8;
+  if (speedKmh < 4.8) return 3.5;
+  if (speedKmh < 6.4) return 4.3;
+  return 5;
 }
 
 function formatDuration(ms) {
