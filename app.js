@@ -19,7 +19,11 @@ const text = {
   gpsUnavailable: "\u4e0d\u53ef",
   gpsCheck: "\u78ba\u8a8d",
   gpsPermission: "\u8a31\u53ef\u5f85\u3061",
+  gpsPreparing: "\u4f4d\u7f6e\u60c5\u5831\u3092\u78ba\u8a8d\u4e2d",
   gpsNeeded: "GPS\u8a31\u53ef\u304c\u5fc5\u8981\u3067\u3059",
+  gpsDenied: "\u8a2d\u5b9a\u3067\u4f4d\u7f6e\u60c5\u5831\u3092\u8a31\u53ef\u3057\u3066\u304f\u3060\u3055\u3044",
+  keepScreenOpen: "\u753b\u9762\u3092\u958b\u3044\u305f\u307e\u307e\u8a18\u9332\u4e2d",
+  gpsResumed: "GPS\u8a18\u9332\u3092\u518d\u958b\u3057\u307e\u3057\u305f",
   gpsGood: "\u826f\u597d",
   gpsWeak: "\u5f31\u3044",
   mapWaiting: "\u8a18\u9332\u5f85\u3061",
@@ -73,6 +77,7 @@ let session = createSession();
 let timerId = 0;
 let watchId = 0;
 let installPrompt = null;
+let wakeLock = null;
 
 init();
 
@@ -102,6 +107,8 @@ function init() {
     installPrompt = event;
     elements.install.hidden = false;
   });
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 }
 
 function createSession() {
@@ -120,12 +127,20 @@ function createSession() {
   };
 }
 
-function startWalk() {
+async function startWalk() {
   if (!session.active) {
+    elements.start.disabled = true;
     session = createSession();
     session.active = true;
     session.startedAt = Date.now();
-    elements.status.textContent = text.recording;
+    elements.status.textContent = text.gpsPreparing;
+    elements.gps.textContent = text.gpsCheck;
+    elements.accuracy.textContent = text.gpsPermission;
+    await requestWakeLock();
+    const firstPosition = await requestInitialPosition();
+    if (firstPosition) {
+      updatePosition(firstPosition);
+    }
     startGps();
     timerId = window.setInterval(render, 1000);
   }
@@ -134,6 +149,9 @@ function startWalk() {
   elements.start.disabled = true;
   elements.pause.disabled = false;
   elements.finish.disabled = false;
+  if (elements.status.textContent === text.gpsPreparing) {
+    elements.status.textContent = text.keepScreenOpen;
+  }
   render();
 }
 
@@ -145,7 +163,8 @@ function togglePause() {
     session.pausedMs += Date.now() - session.pausedAt;
     session.pausedAt = 0;
     elements.pause.textContent = text.pause;
-    elements.status.textContent = text.recording;
+    elements.status.textContent = text.keepScreenOpen;
+    requestWakeLock();
     startGps();
     timerId = window.setInterval(render, 1000);
   } else {
@@ -153,6 +172,7 @@ function togglePause() {
     session.pausedAt = Date.now();
     elements.pause.textContent = text.resume;
     elements.status.textContent = text.paused;
+    releaseWakeLock();
     stopGps();
     window.clearInterval(timerId);
   }
@@ -184,6 +204,7 @@ function finishWalk() {
   }
 
   stopGps();
+  releaseWakeLock();
   window.clearInterval(timerId);
   session = createSession();
   elements.gps.textContent = "OFF";
@@ -207,15 +228,15 @@ function startGps() {
   stopGps();
   watchId = navigator.geolocation.watchPosition(
     updatePosition,
-    () => {
+    (error) => {
       elements.gps.textContent = text.gpsCheck;
-      elements.accuracy.textContent = text.gpsPermission;
-      elements.status.textContent = text.gpsNeeded;
+      elements.accuracy.textContent = "--";
+      elements.status.textContent = error?.code === 1 ? text.gpsDenied : text.gpsNeeded;
     },
     {
       enableHighAccuracy: true,
-      maximumAge: 2000,
-      timeout: 12000,
+      maximumAge: 0,
+      timeout: 18000,
     }
   );
 }
@@ -224,6 +245,64 @@ function stopGps() {
   if (watchId) {
     navigator.geolocation.clearWatch(watchId);
     watchId = 0;
+  }
+}
+
+function requestInitialPosition() {
+  if (!navigator.geolocation) {
+    elements.gps.textContent = text.gpsUnavailable;
+    elements.accuracy.textContent = "--";
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve(position),
+      (error) => {
+        elements.gps.textContent = text.gpsCheck;
+        elements.accuracy.textContent = "--";
+        elements.status.textContent = error?.code === 1 ? text.gpsDenied : text.gpsNeeded;
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 18000,
+      }
+    );
+  });
+}
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator) || wakeLock) return;
+
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => {
+      wakeLock = null;
+    });
+  } catch {
+    wakeLock = null;
+  }
+}
+
+function releaseWakeLock() {
+  if (!wakeLock) return;
+
+  wakeLock.release().catch(() => {});
+  wakeLock = null;
+}
+
+function handleVisibilityChange() {
+  if (!session.active || session.paused) return;
+
+  if (document.visibilityState === "visible") {
+    requestWakeLock();
+    if (!watchId) {
+      startGps();
+    }
+    elements.status.textContent = text.gpsResumed;
+    render();
   }
 }
 
