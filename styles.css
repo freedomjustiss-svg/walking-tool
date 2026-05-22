@@ -94,6 +94,7 @@ h1 {
 
 .hero,
 .stats-grid article,
+.route-panel,
 .manual-panel,
 .weight-panel,
 .settings,
@@ -222,6 +223,43 @@ h1 {
   margin-bottom: 12px;
 }
 
+.route-panel {
+  padding: 14px;
+  margin: 12px 0;
+}
+
+.route-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.route-metrics article {
+  min-height: 80px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.route-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.route-metrics strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.route-metrics small {
+  color: var(--muted);
+}
+
 .controls .primary {
   border-color: transparent;
   color: #ffffff;
@@ -308,6 +346,14 @@ li strong {
 li span {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.map-link {
+  grid-column: 1 / -1;
+  min-height: 38px;
+  padding: 0 10px;
+  color: var(--green-dark);
+  box-shadow: none;
 }
 
 .compact-list {

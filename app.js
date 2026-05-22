@@ -5,9 +5,10 @@ const kcalPerKgKm = 0.75;
 const fallbackWeightKg = 60;
 const maxUsableAccuracyMeters = 65;
 const preferredAccuracyMeters = 35;
-const maxWalkingSpeedMetersPerSecond = 4.5;
-const maxSegmentMeters = 120;
+const maxWalkingSpeedMetersPerSecond = 4.8;
+const maxSegmentMeters = 900;
 const minSampleIntervalMs = 1200;
+const googleMapsWaypointLimit = 8;
 
 const text = {
   recording: "\u8a18\u9332\u4e2d",
@@ -21,6 +22,8 @@ const text = {
   gpsNeeded: "GPS\u8a31\u53ef\u304c\u5fc5\u8981\u3067\u3059",
   gpsGood: "\u826f\u597d",
   gpsWeak: "\u5f31\u3044",
+  mapWaiting: "\u8a18\u9332\u5f85\u3061",
+  mapReady: "\u78ba\u8a8d\u3067\u304d\u307e\u3059",
   distanceAdded: "\u8ddd\u96e2\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f",
   checkWeight: "\u4f53\u91cd\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044",
   weightSaved: "\u4f53\u91cd\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f",
@@ -52,6 +55,9 @@ const elements = {
   finish: document.querySelector("#finishButton"),
   manualDistance: document.querySelector("#manualDistance"),
   addManual: document.querySelector("#addManualButton"),
+  avgSpeed: document.querySelector("#avgSpeedValue"),
+  routePoints: document.querySelector("#routePointsValue"),
+  googleMaps: document.querySelector("#googleMapsButton"),
   weightInput: document.querySelector("#weightInput"),
   saveWeight: document.querySelector("#saveWeightButton"),
   weightDateLabel: document.querySelector("#weightDateLabel"),
@@ -83,10 +89,12 @@ function init() {
   elements.pause.addEventListener("click", togglePause);
   elements.finish.addEventListener("click", finishWalk);
   elements.addManual.addEventListener("click", addManualDistance);
+  elements.googleMaps.addEventListener("click", openCurrentRouteInGoogleMaps);
   elements.goal.addEventListener("change", updateGoal);
   elements.saveWeight.addEventListener("click", saveTodayWeight);
   elements.shareData.addEventListener("click", shareHealthData);
   elements.clearHistory.addEventListener("click", clearHistory);
+  elements.history.addEventListener("click", openHistoryRouteInGoogleMaps);
   elements.install.addEventListener("click", installApp);
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -257,7 +265,8 @@ function updatePosition(position) {
     return;
   }
 
-  if (meters > maxSegmentMeters || speed > maxWalkingSpeedMetersPerSecond || reportedSpeed > maxWalkingSpeedMetersPerSecond) {
+  const maxSegment = getMaxSegmentMeters(seconds);
+  if (meters > maxSegment || speed > maxWalkingSpeedMetersPerSecond || reportedSpeed > maxWalkingSpeedMetersPerSecond) {
     session.rejectedSamples += 1;
     if (point.accuracy < session.lastPoint.accuracy) {
       session.lastPoint = point;
@@ -306,6 +315,11 @@ function replaceAnchorIfBetter(point) {
 function getNoiseFloorMeters(a, b) {
   const accuracyNoise = (a.accuracy + b.accuracy) * 0.12;
   return Math.max(4, Math.min(14, accuracyNoise));
+}
+
+function getMaxSegmentMeters(seconds) {
+  const walkingLimit = seconds * maxWalkingSpeedMetersPerSecond * 1.25;
+  return Math.max(90, Math.min(maxSegmentMeters, walkingLimit));
 }
 
 function roundCoordinate(value) {
@@ -466,17 +480,23 @@ function render() {
   const distanceKm = session.distanceKm;
   const elapsedMs = getElapsedMs();
   const elapsedMinutes = elapsedMs / 60000;
-  const paceMinutes = distanceKm > 0 ? elapsedMinutes / distanceKm : 0;
+  const movingMs = session.movingMs || elapsedMs;
+  const movingMinutes = movingMs / 60000;
+  const paceMinutes = distanceKm > 0 ? movingMinutes / distanceKm : 0;
   const steps = Math.round((distanceKm * 1000) / strideMeters);
   const weightKg = getLatestWeightKg();
-  const calories = calculateCalories(distanceKm, session.movingMs || elapsedMs, weightKg);
+  const calories = calculateCalories(distanceKm, movingMs, weightKg);
   const progress = Math.min(1, distanceKm / state.goalKm);
+  const speedKmh = distanceKm > 0 && movingMs > 0 ? distanceKm / (movingMs / 3600000) : 0;
 
   elements.distance.textContent = distanceKm.toFixed(2);
   elements.timer.textContent = formatDuration(elapsedMs);
   elements.pace.textContent = paceMinutes ? formatPace(paceMinutes) : "--'--\"";
   elements.steps.textContent = steps.toLocaleString("ja-JP");
   elements.calories.textContent = String(calories);
+  elements.avgSpeed.textContent = speedKmh ? speedKmh.toFixed(1) : "--";
+  elements.routePoints.textContent = String(session.track.length);
+  elements.googleMaps.disabled = session.track.length < 2;
   elements.weight.textContent = getLatestWeight()?.weightKg.toFixed(1) || "--";
   elements.goalText.textContent = `${text.goal} ${state.goalKm.toFixed(1)} km`;
   elements.goalRing.style.strokeDashoffset = String(ringLength * (1 - progress));
@@ -500,14 +520,71 @@ function renderHistory() {
       record.distanceKm && record.elapsedMs > 1000
         ? `${formatPace((record.movingMs || record.elapsedMs) / 60000 / record.distanceKm)} / km`
         : "--";
+    const routeButton = record.route?.length > 1 ? `<button class="map-link" type="button" data-route-id="${record.id}">Google\u30de\u30c3\u30d7</button>` : "";
     item.innerHTML = `
       <strong>${record.distanceKm.toFixed(2)} km</strong>
       <strong>${formatDuration(record.elapsedMs)}</strong>
       <span>${date} / ${weightText}</span>
       <span>${paceText}</span>
+      ${routeButton}
     `;
     elements.history.append(item);
   }
+}
+
+function openCurrentRouteInGoogleMaps() {
+  if (session.track.length < 2) return;
+  window.open(buildGoogleMapsRouteUrl(session.track), "_blank", "noopener");
+}
+
+function openHistoryRouteInGoogleMaps(event) {
+  const button = event.target.closest("[data-route-id]");
+  if (!button) return;
+
+  const record = state.history.find((item) => item.id === button.dataset.routeId);
+  if (!record?.route?.length || record.route.length < 2) return;
+  window.open(buildGoogleMapsRouteUrl(record.route), "_blank", "noopener");
+}
+
+function buildGoogleMapsRouteUrl(route) {
+  const points = normalizeRoutePoints(route);
+  const origin = points[0];
+  const destination = points[points.length - 1];
+  const params = new URLSearchParams({
+    api: "1",
+    travelmode: "walking",
+    origin: formatLatLon(origin),
+    destination: formatLatLon(destination),
+  });
+  const waypoints = sampleWaypoints(points.slice(1, -1), googleMapsWaypointLimit);
+  if (waypoints.length) {
+    params.set("waypoints", waypoints.map(formatLatLon).join("|"));
+  }
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function normalizeRoutePoints(route) {
+  return route
+    .map((point) => ({
+      lat: Number(point.lat ?? point.latitude),
+      lon: Number(point.lon ?? point.longitude),
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+}
+
+function sampleWaypoints(points, limit) {
+  if (points.length <= limit) return points;
+
+  const sampled = [];
+  const step = points.length / (limit + 1);
+  for (let index = 1; index <= limit; index += 1) {
+    sampled.push(points[Math.floor(step * index)]);
+  }
+  return sampled;
+}
+
+function formatLatLon(point) {
+  return `${point.lat},${point.lon}`;
 }
 
 function renderWeightHistory() {
