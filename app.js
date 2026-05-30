@@ -59,6 +59,7 @@ const elements = {
   goalRing: document.querySelector("#goalRing"),
   start: document.querySelector("#startButton"),
   historyButton: document.querySelector("#historyButton"),
+  historyButtonLarge: document.querySelector("#historyButtonLarge"),
   pocket: document.querySelector("#pocketButton"),
   pause: document.querySelector("#pauseButton"),
   finish: document.querySelector("#finishButton"),
@@ -106,6 +107,7 @@ function init() {
 
   elements.start.addEventListener("click", startWalk);
   elements.historyButton.addEventListener("click", showHistoryPage);
+  elements.historyButtonLarge.addEventListener("click", showHistoryPage);
   elements.closeHistory.addEventListener("click", hideHistoryPage);
   elements.pocket.addEventListener("click", enablePocketMode);
   elements.pause.addEventListener("click", togglePause);
@@ -686,8 +688,8 @@ function renderHistory() {
       <strong>${record.distanceKm.toFixed(2)} km</strong>
       <strong>${formatDuration(record.elapsedMs)}</strong>
       <span>${date} / ${weightText}</span>
-      <span>開始 ${startText} / 終了 ${endText}</span>
-      <span>ペース ${paceText}</span>
+      <span>\u958b\u59cb ${startText} / \u7d42\u4e86 ${endText}</span>
+      <span>\u30da\u30fc\u30b9 ${paceText}</span>
       <span></span>
       ${routeButton}
     `;

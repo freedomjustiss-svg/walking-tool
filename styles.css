@@ -241,6 +241,18 @@ h1 {
   margin: 12px 0;
 }
 
+.history-entry {
+  margin: 12px 0;
+}
+
+.history-entry button {
+  width: 100%;
+  border-color: transparent;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-weight: 700;
+}
+
 .route-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
