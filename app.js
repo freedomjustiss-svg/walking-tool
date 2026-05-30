@@ -208,9 +208,12 @@ function finishWalk() {
 
   const elapsedMs = getElapsedMs();
   const weightKg = getLatestWeightKg();
+  const endedAt = new Date();
   const record = {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-    date: new Date().toISOString(),
+    date: endedAt.toISOString(),
+    startedAt: new Date(session.startedAt).toISOString(),
+    endedAt: endedAt.toISOString(),
     distanceKm: session.distanceKm,
     elapsedMs,
     movingMs: session.movingMs,
@@ -592,10 +595,10 @@ async function shareHealthData() {
 }
 
 function buildHealthCsv() {
-  const rows = [["type", "date", "value", "unit", "duration_seconds", "steps", "calories_kcal"]];
+  const rows = [["type", "date", "value", "unit", "duration_seconds", "steps", "calories_kcal", "start_time", "end_time"]];
 
   for (const item of state.weights) {
-    rows.push(["body_weight", item.date, item.weightKg, "kg", "", "", ""]);
+    rows.push(["body_weight", item.date, item.weightKg, "kg", "", "", "", "", ""]);
   }
 
   for (const item of state.history) {
@@ -607,6 +610,8 @@ function buildHealthCsv() {
       Math.round((item.movingMs || item.elapsedMs) / 1000),
       item.steps || Math.round((item.distanceKm * 1000) / strideMeters),
       item.calories || calculateCalories(item.distanceKm, item.movingMs || item.elapsedMs, getLatestWeightKg()),
+      item.startedAt || "",
+      item.endedAt || item.date,
     ]);
   }
 
@@ -666,7 +671,11 @@ function renderHistory() {
 
   for (const record of state.history) {
     const item = document.createElement("li");
-    const date = formatDateLabel(new Date(record.date));
+    const endedDate = new Date(record.endedAt || record.date);
+    const startedDate = record.startedAt ? new Date(record.startedAt) : null;
+    const date = formatDateLabel(endedDate);
+    const startText = startedDate ? formatTimeLabel(startedDate) : "--:--";
+    const endText = formatTimeLabel(endedDate);
     const weightText = record.weightKg ? `${record.weightKg.toFixed(1)} kg` : text.noWeight;
     const paceText =
       record.distanceKm && record.elapsedMs > 1000
@@ -677,7 +686,9 @@ function renderHistory() {
       <strong>${record.distanceKm.toFixed(2)} km</strong>
       <strong>${formatDuration(record.elapsedMs)}</strong>
       <span>${date} / ${weightText}</span>
-      <span>${paceText}</span>
+      <span>開始 ${startText} / 終了 ${endText}</span>
+      <span>ペース ${paceText}</span>
+      <span></span>
       ${routeButton}
     `;
     elements.history.append(item);
@@ -814,6 +825,14 @@ function formatDateLabel(date) {
     month: "numeric",
     day: "numeric",
     weekday: "short",
+  }).format(date);
+}
+
+function formatTimeLabel(date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   }).format(date);
 }
 
