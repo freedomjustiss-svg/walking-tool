@@ -92,6 +92,7 @@
 
       <section class="controls" aria-label="&#25805;&#20316;">
         <button class="primary" id="startButton" type="button">&#38283;&#22987;</button>
+        <button id="pocketButton" type="button" disabled>&#12509;&#12465;&#12483;&#12488;</button>
         <button id="pauseButton" type="button" disabled>&#19968;&#26178;&#20572;&#27490;</button>
         <button id="finishButton" type="button" disabled>&#32066;&#20102;</button>
       </section>
@@ -141,6 +142,16 @@
         <ol id="historyList" aria-live="polite"></ol>
       </section>
     </main>
+
+    <div class="pocket-screen" id="pocketScreen" hidden>
+      <div class="pocket-status">
+        <span>Walk Mate</span>
+        <strong id="pocketDistanceValue">0.00 km</strong>
+        <small id="pocketTimerValue">00:00:00</small>
+        <small id="pocketGpsValue">GPS --</small>
+      </div>
+      <button id="unlockPocketButton" type="button">&#38263;&#25276;&#12375;&#12391;&#35299;&#38500;</button>
+    </div>
 
     <script src="app.js"></script>
   </body>

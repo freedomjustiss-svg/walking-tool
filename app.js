@@ -24,6 +24,8 @@ const text = {
   gpsDenied: "\u8a2d\u5b9a\u3067\u4f4d\u7f6e\u60c5\u5831\u3092\u8a31\u53ef\u3057\u3066\u304f\u3060\u3055\u3044",
   keepScreenOpen: "\u753b\u9762\u3092\u958b\u3044\u305f\u307e\u307e\u8a18\u9332\u4e2d",
   gpsResumed: "GPS\u8a18\u9332\u3092\u518d\u958b\u3057\u307e\u3057\u305f",
+  pocketOn: "\u30dd\u30b1\u30c3\u30c8\u30e2\u30fc\u30c9\u4e2d",
+  pocketOff: "\u30dd\u30b1\u30c3\u30c8\u30e2\u30fc\u30c9\u3092\u89e3\u9664\u3057\u307e\u3057\u305f",
   gpsGood: "\u826f\u597d",
   gpsWeak: "\u5f31\u3044",
   mapWaiting: "\u8a18\u9332\u5f85\u3061",
@@ -55,6 +57,7 @@ const elements = {
   goalText: document.querySelector("#goalText"),
   goalRing: document.querySelector("#goalRing"),
   start: document.querySelector("#startButton"),
+  pocket: document.querySelector("#pocketButton"),
   pause: document.querySelector("#pauseButton"),
   finish: document.querySelector("#finishButton"),
   manualDistance: document.querySelector("#manualDistance"),
@@ -70,6 +73,11 @@ const elements = {
   history: document.querySelector("#historyList"),
   clearHistory: document.querySelector("#clearHistoryButton"),
   install: document.querySelector("#installButton"),
+  pocketScreen: document.querySelector("#pocketScreen"),
+  pocketDistance: document.querySelector("#pocketDistanceValue"),
+  pocketTimer: document.querySelector("#pocketTimerValue"),
+  pocketGps: document.querySelector("#pocketGpsValue"),
+  unlockPocket: document.querySelector("#unlockPocketButton"),
 };
 
 const state = loadState();
@@ -78,6 +86,8 @@ let timerId = 0;
 let watchId = 0;
 let installPrompt = null;
 let wakeLock = null;
+let pocketMode = false;
+let unlockTimer = 0;
 
 init();
 
@@ -91,6 +101,7 @@ function init() {
   registerServiceWorker();
 
   elements.start.addEventListener("click", startWalk);
+  elements.pocket.addEventListener("click", enablePocketMode);
   elements.pause.addEventListener("click", togglePause);
   elements.finish.addEventListener("click", finishWalk);
   elements.addManual.addEventListener("click", addManualDistance);
@@ -101,6 +112,10 @@ function init() {
   elements.clearHistory.addEventListener("click", clearHistory);
   elements.history.addEventListener("click", openHistoryRouteInGoogleMaps);
   elements.install.addEventListener("click", installApp);
+  elements.unlockPocket.addEventListener("pointerdown", startPocketUnlock);
+  elements.unlockPocket.addEventListener("pointerup", cancelPocketUnlock);
+  elements.unlockPocket.addEventListener("pointercancel", cancelPocketUnlock);
+  elements.unlockPocket.addEventListener("pointerleave", cancelPocketUnlock);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -147,6 +162,7 @@ async function startWalk() {
 
   session.paused = false;
   elements.start.disabled = true;
+  elements.pocket.disabled = false;
   elements.pause.disabled = false;
   elements.finish.disabled = false;
   if (elements.status.textContent === text.gpsPreparing) {
@@ -172,6 +188,7 @@ function togglePause() {
     session.pausedAt = Date.now();
     elements.pause.textContent = text.resume;
     elements.status.textContent = text.paused;
+    disablePocketMode(false);
     releaseWakeLock();
     stopGps();
     window.clearInterval(timerId);
@@ -204,6 +221,7 @@ function finishWalk() {
   }
 
   stopGps();
+  disablePocketMode(false);
   releaseWakeLock();
   window.clearInterval(timerId);
   session = createSession();
@@ -211,11 +229,45 @@ function finishWalk() {
   elements.accuracy.textContent = "--";
   elements.status.textContent = text.saved;
   elements.start.disabled = false;
+  elements.pocket.disabled = true;
   elements.pause.disabled = true;
   elements.finish.disabled = true;
   elements.pause.textContent = text.pause;
   render();
   renderHistory();
+}
+
+function enablePocketMode() {
+  if (!session.active || session.paused) return;
+
+  pocketMode = true;
+  elements.pocketScreen.hidden = false;
+  elements.status.textContent = text.pocketOn;
+  requestWakeLock();
+  render();
+}
+
+function disablePocketMode(showStatus = true) {
+  pocketMode = false;
+  elements.pocketScreen.hidden = true;
+  cancelPocketUnlock();
+  if (showStatus) {
+    elements.status.textContent = text.pocketOff;
+  }
+}
+
+function startPocketUnlock() {
+  cancelPocketUnlock();
+  unlockTimer = window.setTimeout(() => {
+    disablePocketMode(true);
+  }, 1800);
+}
+
+function cancelPocketUnlock() {
+  if (!unlockTimer) return;
+
+  window.clearTimeout(unlockTimer);
+  unlockTimer = 0;
 }
 
 function startGps() {
@@ -576,6 +628,10 @@ function render() {
   elements.avgSpeed.textContent = speedKmh ? speedKmh.toFixed(1) : "--";
   elements.routePoints.textContent = String(session.track.length);
   elements.googleMaps.disabled = session.track.length < 2;
+  elements.pocket.disabled = !session.active || session.paused;
+  elements.pocketDistance.textContent = `${distanceKm.toFixed(2)} km`;
+  elements.pocketTimer.textContent = formatDuration(elapsedMs);
+  elements.pocketGps.textContent = `GPS ${elements.accuracy.textContent}`;
   elements.weight.textContent = getLatestWeight()?.weightKg.toFixed(1) || "--";
   elements.goalText.textContent = `${text.goal} ${state.goalKm.toFixed(1)} km`;
   elements.goalRing.style.strokeDashoffset = String(ringLength * (1 - progress));

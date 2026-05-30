@@ -218,7 +218,7 @@ h1 {
 
 .controls {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -365,6 +365,55 @@ li span {
   min-height: 44px;
 }
 
+.pocket-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  place-items: center;
+  padding: calc(env(safe-area-inset-top) + 26px) 22px calc(env(safe-area-inset-bottom) + 30px);
+  color: #e8fff7;
+  background: #000000;
+  touch-action: none;
+  user-select: none;
+}
+
+.pocket-screen[hidden] {
+  display: none;
+}
+
+.pocket-status {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.pocket-status span {
+  color: rgba(232, 255, 247, 0.58);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.pocket-status strong {
+  font-size: clamp(2.7rem, 15vw, 4.8rem);
+  line-height: 1;
+}
+
+.pocket-status small {
+  color: rgba(232, 255, 247, 0.7);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+#unlockPocketButton {
+  width: min(100%, 320px);
+  border-color: rgba(232, 255, 247, 0.2);
+  color: #e8fff7;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
 @media (max-width: 390px) {
   .hero {
     grid-template-columns: 1fr;
@@ -373,6 +422,6 @@ li span {
   }
 
   .controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
