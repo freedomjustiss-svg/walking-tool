@@ -9,6 +9,7 @@ const maxWalkingSpeedMetersPerSecond = 4.8;
 const maxSegmentMeters = 900;
 const minSampleIntervalMs = 1200;
 const googleMapsWaypointLimit = 8;
+const maxHistoryRecords = 90;
 
 const text = {
   recording: "\u8a18\u9332\u4e2d",
@@ -57,6 +58,7 @@ const elements = {
   goalText: document.querySelector("#goalText"),
   goalRing: document.querySelector("#goalRing"),
   start: document.querySelector("#startButton"),
+  historyButton: document.querySelector("#historyButton"),
   pocket: document.querySelector("#pocketButton"),
   pause: document.querySelector("#pauseButton"),
   finish: document.querySelector("#finishButton"),
@@ -70,6 +72,8 @@ const elements = {
   weightDateLabel: document.querySelector("#weightDateLabel"),
   weightHistory: document.querySelector("#weightHistoryList"),
   shareData: document.querySelector("#shareDataButton"),
+  historyPage: document.querySelector("#historyPage"),
+  closeHistory: document.querySelector("#closeHistoryButton"),
   history: document.querySelector("#historyList"),
   clearHistory: document.querySelector("#clearHistoryButton"),
   install: document.querySelector("#installButton"),
@@ -101,6 +105,8 @@ function init() {
   registerServiceWorker();
 
   elements.start.addEventListener("click", startWalk);
+  elements.historyButton.addEventListener("click", showHistoryPage);
+  elements.closeHistory.addEventListener("click", hideHistoryPage);
   elements.pocket.addEventListener("click", enablePocketMode);
   elements.pause.addEventListener("click", togglePause);
   elements.finish.addEventListener("click", finishWalk);
@@ -216,7 +222,7 @@ function finishWalk() {
 
   if (record.distanceKm > 0 || record.elapsedMs > 5000) {
     state.history.unshift(record);
-    state.history = state.history.slice(0, 30);
+    state.history = state.history.slice(0, maxHistoryRecords);
     saveState();
   }
 
@@ -540,6 +546,17 @@ function clearHistory() {
   renderHistory();
 }
 
+function showHistoryPage() {
+  renderHistory();
+  elements.historyPage.hidden = false;
+  document.body.classList.add("history-open");
+}
+
+function hideHistoryPage() {
+  elements.historyPage.hidden = true;
+  document.body.classList.remove("history-open");
+}
+
 async function installApp() {
   if (!installPrompt) {
     elements.status.textContent = text.safariInstall;
@@ -812,7 +829,7 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(storageKey));
     return {
       goalKm: Number(saved?.goalKm) || 3,
-      history: Array.isArray(saved?.history) ? saved.history : [],
+      history: Array.isArray(saved?.history) ? saved.history.slice(0, maxHistoryRecords) : [],
       weights: Array.isArray(saved?.weights) ? saved.weights : [],
     };
   } catch {

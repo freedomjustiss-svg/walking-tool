@@ -20,9 +20,12 @@
           <p class="eyebrow">&#20170;&#26085;&#12398;&#12454;&#12457;&#12540;&#12461;&#12531;&#12464;</p>
           <h1>Walk Mate</h1>
         </div>
-        <button class="icon-button" id="installButton" type="button" aria-label="&#12507;&#12540;&#12512;&#30011;&#38754;&#12408;&#36861;&#21152;">
-          <span aria-hidden="true">+</span>
-        </button>
+        <div class="top-actions">
+          <button id="historyButton" type="button">&#35352;&#37682;</button>
+          <button class="icon-button" id="installButton" type="button" aria-label="&#12507;&#12540;&#12512;&#30011;&#38754;&#12408;&#36861;&#21152;">
+            <span aria-hidden="true">+</span>
+          </button>
+        </div>
       </header>
 
       <section class="hero">
@@ -134,9 +137,13 @@
         <p>PWA&#12363;&#12425;&#12504;&#12523;&#12473;&#12465;&#12450;&#12408;&#30452;&#25509;&#21516;&#26399;&#12391;&#12365;&#12394;&#12356;&#12383;&#12417;&#12289;CSV&#12391;&#20849;&#26377;&#12375;&#12414;&#12377;&#12290;</p>
       </section>
 
-      <section class="history">
-        <div class="section-title">
-          <h2>&#23653;&#27508;</h2>
+      <section class="history history-page" id="historyPage" hidden>
+        <div class="history-header">
+          <button id="closeHistoryButton" type="button">&#25147;&#12427;</button>
+          <div>
+            <p class="eyebrow">&#26368;&#22823;90&#20214;&#12434;&#20445;&#23384;</p>
+            <h2>&#35352;&#37682;</h2>
+          </div>
           <button id="clearHistoryButton" type="button">&#12463;&#12522;&#12450;</button>
         </div>
         <ol id="historyList" aria-live="polite"></ol>
