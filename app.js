@@ -679,6 +679,8 @@ function renderHistory() {
     const startText = startedDate ? formatTimeLabel(startedDate) : "--:--";
     const endText = formatTimeLabel(endedDate);
     const weightText = record.weightKg ? `${record.weightKg.toFixed(1)} kg` : text.noWeight;
+    const calories = record.calories || calculateCalories(record.distanceKm, record.movingMs || record.elapsedMs, record.weightKg || getLatestWeightKg());
+    const calorieText = calories ? `${calories} kcal` : "-- kcal";
     const paceText =
       record.distanceKm && record.elapsedMs > 1000
         ? `${formatPace((record.movingMs || record.elapsedMs) / 60000 / record.distanceKm)} / km`
@@ -687,9 +689,11 @@ function renderHistory() {
     item.innerHTML = `
       <strong>${record.distanceKm.toFixed(2)} km</strong>
       <strong>${formatDuration(record.elapsedMs)}</strong>
-      <span>${date} / ${weightText}</span>
-      <span>\u958b\u59cb ${startText} / \u7d42\u4e86 ${endText}</span>
+      <span>${date}</span>
+      <span>\u4f53\u91cd ${weightText}</span>
+      <span>\u6d88\u8cbb ${calorieText}</span>
       <span>\u30da\u30fc\u30b9 ${paceText}</span>
+      <span>\u958b\u59cb ${startText} / \u7d42\u4e86 ${endText}</span>
       <span></span>
       ${routeButton}
     `;
